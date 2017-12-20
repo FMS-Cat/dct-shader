@@ -164,6 +164,8 @@ path.add( {
 
       glCat.attribute( 'p', vboQuad, 2 );
       glCat.uniform1i( 'isVert', false );
+      glCat.uniform1i( 'bypassRDCT', tweak.checkbox( "bypassRDCT" ) ? 1 : 0 );
+      glCat.uniform1i( 'showYCbCr', tweak.checkbox( "showYCbCr" ) ? 1 : 0 );
       glCat.uniform1i( 'blockSize', tweak.range( "blockSize" ) );
       glCat.uniformTexture( 'sampler0', path.fb( "jpegCosine" ).texture, 0 );
       gl.drawArrays( gl.TRIANGLE_STRIP, 0, 4 );
