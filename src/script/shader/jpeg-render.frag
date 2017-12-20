@@ -8,6 +8,8 @@ uniform vec2 resolution;
 uniform bool isVert;
 uniform int blockSize;
 uniform sampler2D sampler0;
+uniform bool bypassRDCT;
+uniform bool showYCbCr;
 
 // ------
 
@@ -21,6 +23,12 @@ vec3 yuv2rgb( vec3 yuv ) {
 
 void main() {
   vec2 uv = gl_FragCoord.xy / resolution;
+  if ( bypassRDCT ) {
+    gl_FragColor = texture2D( sampler0, uv );
+    if ( isVert ) { gl_FragColor.xyz += 0.5; }
+    return;
+  }
+
   vec2 bv = ( isVert ? vec2( 0.0, 1.0 ) : vec2( 1.0, 0.0 ) );
   vec2 block = bv * float( blockSize - 1 ) + vec2( 1.0 );
   vec2 blockOrigin = 0.5 + floor( gl_FragCoord.xy / block ) * block;
@@ -41,7 +49,11 @@ void main() {
   }
 
   if ( isVert ) {
-    sum = yuv2rgb( sum );
+    if ( showYCbCr ) {
+      sum.yz += 0.5;
+    } else {
+      sum = yuv2rgb( sum );
+    }
   }
 
   gl_FragColor = vec4( sum, 1.0 );

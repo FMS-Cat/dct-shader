@@ -888,7 +888,7 @@ path.add({
     width: width,
     height: height,
     vert: "#define GLSLIFY 1\nattribute vec2 p;\n\nvoid main() {\n  gl_Position = vec4( p, 0.0, 1.0 );\n}\n",
-    frag: "#define lofi(i,j) floor((i)/(j)+.5)*(j)\n#define PI 3.14159265\n\nprecision highp float;\n#define GLSLIFY 1\n\nuniform vec2 resolution;\n\nuniform bool isVert;\nuniform int blockSize;\nuniform sampler2D sampler0;\n\n// ------\n\nvec3 yuv2rgb( vec3 yuv ) {\n  return vec3(\n    yuv.x + 1.402 * yuv.z,\n    yuv.x - 0.344136 * yuv.y - 0.714136 * yuv.z,\n    yuv.x + 1.772 * yuv.y\n  );\n}\n\nvoid main() {\n  vec2 uv = gl_FragCoord.xy / resolution;\n  vec2 bv = ( isVert ? vec2( 0.0, 1.0 ) : vec2( 1.0, 0.0 ) );\n  vec2 block = bv * float( blockSize - 1 ) + vec2( 1.0 );\n  vec2 blockOrigin = 0.5 + floor( gl_FragCoord.xy / block ) * block;\n\n  float delta = mod( isVert ? gl_FragCoord.y : gl_FragCoord.x, float( blockSize ) );\n  \n  vec3 sum = vec3( 0.0 );\n  for ( int i = 0; i < 1024; i ++ ) {\n    if ( blockSize <= i ) { break; }\n\n    float fdelta = float( i );\n\n    vec4 tex = texture2D( sampler0, ( blockOrigin + bv * fdelta ) / resolution );\n    vec3 val = tex.xyz;\n\n    float wave = cos( delta * fdelta / float( blockSize ) * PI );\n    sum += wave * val;\n  }\n\n  if ( isVert ) {\n    sum = yuv2rgb( sum );\n  }\n\n  gl_FragColor = vec4( sum, 1.0 );\n}",
+    frag: "#define lofi(i,j) floor((i)/(j)+.5)*(j)\n#define PI 3.14159265\n\nprecision highp float;\n#define GLSLIFY 1\n\nuniform vec2 resolution;\n\nuniform bool isVert;\nuniform int blockSize;\nuniform sampler2D sampler0;\nuniform bool bypassRDCT;\nuniform bool showYCbCr;\n\n// ------\n\nvec3 yuv2rgb( vec3 yuv ) {\n  return vec3(\n    yuv.x + 1.402 * yuv.z,\n    yuv.x - 0.344136 * yuv.y - 0.714136 * yuv.z,\n    yuv.x + 1.772 * yuv.y\n  );\n}\n\nvoid main() {\n  vec2 uv = gl_FragCoord.xy / resolution;\n  if ( bypassRDCT ) {\n    gl_FragColor = texture2D( sampler0, uv );\n    if ( isVert ) { gl_FragColor.xyz += 0.5; }\n    return;\n  }\n\n  vec2 bv = ( isVert ? vec2( 0.0, 1.0 ) : vec2( 1.0, 0.0 ) );\n  vec2 block = bv * float( blockSize - 1 ) + vec2( 1.0 );\n  vec2 blockOrigin = 0.5 + floor( gl_FragCoord.xy / block ) * block;\n\n  float delta = mod( isVert ? gl_FragCoord.y : gl_FragCoord.x, float( blockSize ) );\n  \n  vec3 sum = vec3( 0.0 );\n  for ( int i = 0; i < 1024; i ++ ) {\n    if ( blockSize <= i ) { break; }\n\n    float fdelta = float( i );\n\n    vec4 tex = texture2D( sampler0, ( blockOrigin + bv * fdelta ) / resolution );\n    vec3 val = tex.xyz;\n\n    float wave = cos( delta * fdelta / float( blockSize ) * PI );\n    sum += wave * val;\n  }\n\n  if ( isVert ) {\n    if ( showYCbCr ) {\n      sum.yz += 0.5;\n    } else {\n      sum = yuv2rgb( sum );\n    }\n  }\n\n  gl_FragColor = vec4( sum, 1.0 );\n}",
     blend: [gl.ONE, gl.ONE],
     clear: [0.0, 0.0, 0.0, 0.0],
     tempFb: glCat.createFloatFramebuffer(width, height),
@@ -909,6 +909,8 @@ path.add({
 
       glCat.attribute('p', vboQuad, 2);
       glCat.uniform1i('isVert', true);
+      glCat.uniform1i('bypassRDCT', tweak.checkbox("bypassRDCT") ? 1 : 0);
+      glCat.uniform1i('showYCbCr', tweak.checkbox("showYCbCr") ? 1 : 0);
       glCat.uniform1i('blockSize', tweak.range("blockSize"));
       glCat.uniformTexture('sampler0', p.tempFb.texture, 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
