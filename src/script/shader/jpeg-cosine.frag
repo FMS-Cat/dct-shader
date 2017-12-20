@@ -16,6 +16,8 @@ uniform float quantizeY;
 uniform float quantizeYf;
 uniform float quantizeC;
 uniform float quantizeCf;
+uniform float quantizeA;
+uniform float quantizeAf;
 
 // ------
 
@@ -36,15 +38,17 @@ void main() {
   float freq = floor( mod( dot( bv, gl_FragCoord.xy ), float( blockSize ) ) ) / float( bs ) * PI;
   float factor = ( freq == 0.0 ? 1.0 : 2.0 ) / float( bs );
 
-  vec3 sum = vec3( 0.0 );
+  vec4 sum = vec4( 0.0 );
   for ( int i = 0; i < 1024; i ++ ) {
     if ( bs <= i ) { break; }
 
     vec2 delta = float( i ) * bv;
     float wave = cos( ( float( i ) + 0.5 ) * freq );
 
-    vec3 val = texture2D( sampler0, ( blockOrigin + delta ) / resolution ).xyz;
-    if ( !isVert ) { val = rgb2yuv( val ); }
+    vec2 uv = ( blockOrigin + delta ) / resolution;
+    if ( !isVert ) { uv = vec2( 0.0, 1.0 ) + vec2( 1.0, -1.0 ) * uv; }
+    vec4 val = texture2D( sampler0, uv );
+    if ( !isVert ) { val.xyz = rgb2yuv( val.xyz ); }
     sum += wave * factor * val;
   }
 
@@ -57,8 +61,11 @@ void main() {
     float qC = quantizeC + quantizeCf * len;
     sum.yz = 0.0 < qC ? lofi( sum.yz, qC ) : sum.yz;
 
+    float qA = quantizeA + quantizeAf * len;
+    sum.w = 0.0 < qA ? lofi( sum.w, qA ) : sum.w;
+
     sum *= 1.0 + len * highFreqMultiplier;
   }
 
-  gl_FragColor = vec4( sum, 1.0 );
+  gl_FragColor = sum;
 }

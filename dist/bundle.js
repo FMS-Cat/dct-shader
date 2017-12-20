@@ -814,7 +814,6 @@ var resize = function resize(w, h) {
   canvas.width = width;
   canvas.height = height;
 
-  path.resize("input", width, height);
   path.resize("jpegCosine", width, height);
   path.resize("jpegRender", width, height);
 };
@@ -828,27 +827,12 @@ path.setGlobalFunc(function () {
 });
 
 path.add({
-  input: {
-    width: width,
-    height: height,
-    vert: "#define GLSLIFY 1\nattribute vec2 p;\n\nvoid main() {\n  gl_Position = vec4( p, 0.0, 1.0 );\n}\n",
-    frag: "precision highp float;\n#define GLSLIFY 1\n\nuniform vec2 resolution;\nuniform bool vflip;\nuniform sampler2D texture;\n\nvoid main() {\n  vec2 uv = gl_FragCoord.xy / resolution;\n  if ( vflip ) { uv.y = 1.0 - uv.y; }\n  gl_FragColor = texture2D( texture, uv );\n}\n",
-    blend: [gl.ONE, gl.ONE],
-    clear: [0.0, 0.0, 0.0, 0.0],
-    func: function func() {
-      glCat.attribute('p', vboQuad, 2);
-      glCat.uniform1i('vflip', 1);
-      glCat.uniformTexture('texture', textureInput, 0);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    }
-  },
-
   jpegCosine: {
     width: width,
     height: height,
     vert: "#define GLSLIFY 1\nattribute vec2 p;\n\nvoid main() {\n  gl_Position = vec4( p, 0.0, 1.0 );\n}\n",
-    frag: "#define lofi(i,j) floor((i)/(j)+.5)*(j)\n#define PI 3.14159265\n\n// ------\n\nprecision highp float;\n#define GLSLIFY 1\n\nuniform vec2 resolution;\n\nuniform bool isVert;\nuniform int blockSize;\nuniform sampler2D sampler0;\n\nuniform float highFreqMultiplier;\nuniform float quantizeY;\nuniform float quantizeYf;\nuniform float quantizeC;\nuniform float quantizeCf;\n\n// ------\n\nvec3 rgb2yuv( vec3 rgb ) {\n  return vec3(\n    0.299 * rgb.x + 0.587 * rgb.y + 0.114 * rgb.z,\n    -0.148736 * rgb.x - 0.331264 * rgb.y + 0.5 * rgb.z,\n    0.5 * rgb.x - 0.418688 * rgb.y - 0.081312 * rgb.z\n  );\n}\n\nvoid main() {\n  vec2 bv = ( isVert ? vec2( 0.0, 1.0 ) : vec2( 1.0, 0.0 ) );\n  vec2 block = bv * float( blockSize - 1 ) + vec2( 1.0 );\n  vec2 blockOrigin = 0.5 + floor( gl_FragCoord.xy / block ) * block;\n  int bs = int( min( float( blockSize ), dot( bv, resolution - blockOrigin + 0.5 ) ) );\n\n  float freq = floor( mod( dot( bv, gl_FragCoord.xy ), float( blockSize ) ) ) / float( bs ) * PI;\n  float factor = ( freq == 0.0 ? 1.0 : 2.0 ) / float( bs );\n\n  vec3 sum = vec3( 0.0 );\n  for ( int i = 0; i < 1024; i ++ ) {\n    if ( bs <= i ) { break; }\n\n    vec2 delta = float( i ) * bv;\n    float wave = cos( ( float( i ) + 0.5 ) * freq );\n\n    vec3 val = texture2D( sampler0, ( blockOrigin + delta ) / resolution ).xyz;\n    if ( !isVert ) { val = rgb2yuv( val ); }\n    sum += wave * factor * val;\n  }\n\n  if ( isVert ) {\n    float len = length( floor( mod( gl_FragCoord.xy, float( blockSize ) ) ) );\n\n    float qY = quantizeY + quantizeYf * len;\n    sum.x = 0.0 < qY ? lofi( sum.x, qY ) : sum.x;\n\n    float qC = quantizeC + quantizeCf * len;\n    sum.yz = 0.0 < qC ? lofi( sum.yz, qC ) : sum.yz;\n\n    sum *= 1.0 + len * highFreqMultiplier;\n  }\n\n  gl_FragColor = vec4( sum, 1.0 );\n}",
-    blend: [gl.ONE, gl.ONE],
+    frag: "#define lofi(i,j) floor((i)/(j)+.5)*(j)\n#define PI 3.14159265\n\n// ------\n\nprecision highp float;\n#define GLSLIFY 1\n\nuniform vec2 resolution;\n\nuniform bool isVert;\nuniform int blockSize;\nuniform sampler2D sampler0;\n\nuniform float highFreqMultiplier;\nuniform float quantizeY;\nuniform float quantizeYf;\nuniform float quantizeC;\nuniform float quantizeCf;\nuniform float quantizeA;\nuniform float quantizeAf;\n\n// ------\n\nvec3 rgb2yuv( vec3 rgb ) {\n  return vec3(\n    0.299 * rgb.x + 0.587 * rgb.y + 0.114 * rgb.z,\n    -0.148736 * rgb.x - 0.331264 * rgb.y + 0.5 * rgb.z,\n    0.5 * rgb.x - 0.418688 * rgb.y - 0.081312 * rgb.z\n  );\n}\n\nvoid main() {\n  vec2 bv = ( isVert ? vec2( 0.0, 1.0 ) : vec2( 1.0, 0.0 ) );\n  vec2 block = bv * float( blockSize - 1 ) + vec2( 1.0 );\n  vec2 blockOrigin = 0.5 + floor( gl_FragCoord.xy / block ) * block;\n  int bs = int( min( float( blockSize ), dot( bv, resolution - blockOrigin + 0.5 ) ) );\n\n  float freq = floor( mod( dot( bv, gl_FragCoord.xy ), float( blockSize ) ) ) / float( bs ) * PI;\n  float factor = ( freq == 0.0 ? 1.0 : 2.0 ) / float( bs );\n\n  vec4 sum = vec4( 0.0 );\n  for ( int i = 0; i < 1024; i ++ ) {\n    if ( bs <= i ) { break; }\n\n    vec2 delta = float( i ) * bv;\n    float wave = cos( ( float( i ) + 0.5 ) * freq );\n\n    vec2 uv = ( blockOrigin + delta ) / resolution;\n    if ( !isVert ) { uv = vec2( 0.0, 1.0 ) + vec2( 1.0, -1.0 ) * uv; }\n    vec4 val = texture2D( sampler0, uv );\n    if ( !isVert ) { val.xyz = rgb2yuv( val.xyz ); }\n    sum += wave * factor * val;\n  }\n\n  if ( isVert ) {\n    float len = length( floor( mod( gl_FragCoord.xy, float( blockSize ) ) ) );\n\n    float qY = quantizeY + quantizeYf * len;\n    sum.x = 0.0 < qY ? lofi( sum.x, qY ) : sum.x;\n\n    float qC = quantizeC + quantizeCf * len;\n    sum.yz = 0.0 < qC ? lofi( sum.yz, qC ) : sum.yz;\n\n    float qA = quantizeA + quantizeAf * len;\n    sum.w = 0.0 < qA ? lofi( sum.w, qA ) : sum.w;\n\n    sum *= 1.0 + len * highFreqMultiplier;\n  }\n\n  gl_FragColor = sum;\n}",
+    blend: [gl.ONE, gl.ZERO],
     clear: [0.0, 0.0, 0.0, 0.0],
     tempFb: glCat.createFloatFramebuffer(width, height),
     onresize: function onresize(path, w, h) {
@@ -861,12 +845,14 @@ path.add({
       glCat.attribute('p', vboQuad, 2);
       glCat.uniform1i('isVert', false);
       glCat.uniform1i('blockSize', tweak.range("blockSize", { min: 1, value: 8, max: 256, step: 1 }));
-      glCat.uniformTexture('sampler0', path.fb("input").texture, 0);
+      glCat.uniformTexture('sampler0', textureInput, 0);
       glCat.uniform1f('highFreqMultiplier', tweak.range("highFreqMul", { value: 0.0, max: 4.0 }));
       glCat.uniform1f('quantizeY', tweak.range("quantizeY", { max: 0.2 }));
       glCat.uniform1f('quantizeYf', tweak.range("quantizeYf", { max: 0.2 }));
       glCat.uniform1f('quantizeC', tweak.range("quantizeC", { max: 0.2 }));
       glCat.uniform1f('quantizeCf', tweak.range("quantizeCf", { max: 0.2 }));
+      glCat.uniform1f('quantizeA', tweak.range("quantizeA", { max: 0.2 }));
+      glCat.uniform1f('quantizeAf', tweak.range("quantizeAf", { max: 0.2 }));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, p.framebuffer.framebuffer);
@@ -879,6 +865,8 @@ path.add({
       glCat.uniform1f('quantizeYf', tweak.range("quantizeYf"));
       glCat.uniform1f('quantizeC', tweak.range("quantizeC"));
       glCat.uniform1f('quantizeCf', tweak.range("quantizeCf"));
+      glCat.uniform1f('quantizeA', tweak.range("quantizeA"));
+      glCat.uniform1f('quantizeAf', tweak.range("quantizeAf"));
       glCat.uniformTexture('sampler0', p.tempFb.texture, 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
@@ -888,8 +876,8 @@ path.add({
     width: width,
     height: height,
     vert: "#define GLSLIFY 1\nattribute vec2 p;\n\nvoid main() {\n  gl_Position = vec4( p, 0.0, 1.0 );\n}\n",
-    frag: "#define lofi(i,j) floor((i)/(j)+.5)*(j)\n#define PI 3.14159265\n\nprecision highp float;\n#define GLSLIFY 1\n\nuniform vec2 resolution;\n\nuniform bool isVert;\nuniform int blockSize;\nuniform sampler2D sampler0;\nuniform bool bypassRDCT;\nuniform bool showYCbCr;\n\n// ------\n\nbool validuv( vec2 v ) { return 0.0 < v.x && v.x < 1.0 && 0.0 < v.y && v.y < 1.0; }\n\nvec3 yuv2rgb( vec3 yuv ) {\n  return vec3(\n    yuv.x + 1.402 * yuv.z,\n    yuv.x - 0.344136 * yuv.y - 0.714136 * yuv.z,\n    yuv.x + 1.772 * yuv.y\n  );\n}\n\nvoid main() {\n  if ( bypassRDCT ) {\n    vec2 uv = gl_FragCoord.xy / resolution;\n    gl_FragColor = texture2D( sampler0, uv );\n    if ( isVert ) { gl_FragColor.xyz += 0.5; }\n    return;\n  }\n\n  vec2 bv = ( isVert ? vec2( 0.0, 1.0 ) : vec2( 1.0, 0.0 ) );\n  vec2 block = bv * float( blockSize - 1 ) + vec2( 1.0 );\n  vec2 blockOrigin = 0.5 + floor( gl_FragCoord.xy / block ) * block;\n  int bs = int( min( float( blockSize ), dot( bv, resolution - blockOrigin + 0.5 ) ) );\n\n  float delta = mod( dot( bv, gl_FragCoord.xy ), float( blockSize ) );\n  \n  vec3 sum = vec3( 0.0 );\n  for ( int i = 0; i < 1024; i ++ ) {\n    if ( bs <= i ) { break; }\n\n    float fdelta = float( i );\n\n    vec4 tex = texture2D( sampler0, ( blockOrigin + bv * fdelta ) / resolution );\n    vec3 val = tex.xyz;\n\n    float wave = cos( delta * fdelta / float( bs ) * PI );\n    sum += wave * val;\n  }\n\n  if ( isVert ) {\n    if ( showYCbCr ) {\n      sum.yz += 0.5;\n    } else {\n      sum = yuv2rgb( sum );\n    }\n  }\n\n  gl_FragColor = vec4( sum, 1.0 );\n}",
-    blend: [gl.ONE, gl.ONE],
+    frag: "#define lofi(i,j) floor((i)/(j)+.5)*(j)\n#define PI 3.14159265\n\nprecision highp float;\n#define GLSLIFY 1\n\nuniform vec2 resolution;\n\nuniform bool isVert;\nuniform int blockSize;\nuniform sampler2D sampler0;\nuniform bool bypassRDCT;\nuniform bool showYCbCr;\n\n// ------\n\nbool validuv( vec2 v ) { return 0.0 < v.x && v.x < 1.0 && 0.0 < v.y && v.y < 1.0; }\n\nvec3 yuv2rgb( vec3 yuv ) {\n  return vec3(\n    yuv.x + 1.402 * yuv.z,\n    yuv.x - 0.344136 * yuv.y - 0.714136 * yuv.z,\n    yuv.x + 1.772 * yuv.y\n  );\n}\n\nvoid main() {\n  if ( bypassRDCT ) {\n    vec2 uv = gl_FragCoord.xy / resolution;\n    gl_FragColor = texture2D( sampler0, uv );\n    gl_FragColor.w = 1.0;\n    if ( isVert ) { gl_FragColor.xyz += 0.5; }\n    return;\n  }\n\n  vec2 bv = ( isVert ? vec2( 0.0, 1.0 ) : vec2( 1.0, 0.0 ) );\n  vec2 block = bv * float( blockSize - 1 ) + vec2( 1.0 );\n  vec2 blockOrigin = 0.5 + floor( gl_FragCoord.xy / block ) * block;\n  int bs = int( min( float( blockSize ), dot( bv, resolution - blockOrigin + 0.5 ) ) );\n\n  float delta = mod( dot( bv, gl_FragCoord.xy ), float( blockSize ) );\n  \n  vec4 sum = vec4( 0.0 );\n  for ( int i = 0; i < 1024; i ++ ) {\n    if ( bs <= i ) { break; }\n\n    float fdelta = float( i );\n\n    vec4 val = texture2D( sampler0, ( blockOrigin + bv * fdelta ) / resolution );\n\n    float wave = cos( delta * fdelta / float( bs ) * PI );\n    sum += wave * val;\n  }\n\n  if ( isVert ) {\n    if ( showYCbCr ) {\n      sum.yz += 0.5;\n    } else {\n      sum.xyz = yuv2rgb( sum.xyz );\n    }\n  }\n\n  gl_FragColor = sum;\n}",
+    blend: [gl.ONE, gl.ZERO],
     clear: [0.0, 0.0, 0.0, 0.0],
     tempFb: glCat.createFloatFramebuffer(width, height),
     onresize: function onresize(path, w, h) {
@@ -908,6 +896,7 @@ path.add({
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ZERO);
 
       glCat.attribute('p', vboQuad, 2);
       glCat.uniform1i('isVert', true);
@@ -938,7 +927,6 @@ var update = function update() {
     }
   }
 
-  path.render("input");
   path.render("jpegCosine");
   path.render("jpegRender", null);
 

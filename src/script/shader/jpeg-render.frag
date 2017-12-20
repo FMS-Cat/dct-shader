@@ -27,6 +27,7 @@ void main() {
   if ( bypassRDCT ) {
     vec2 uv = gl_FragCoord.xy / resolution;
     gl_FragColor = texture2D( sampler0, uv );
+    gl_FragColor.w = 1.0;
     if ( isVert ) { gl_FragColor.xyz += 0.5; }
     return;
   }
@@ -38,14 +39,13 @@ void main() {
 
   float delta = mod( dot( bv, gl_FragCoord.xy ), float( blockSize ) );
   
-  vec3 sum = vec3( 0.0 );
+  vec4 sum = vec4( 0.0 );
   for ( int i = 0; i < 1024; i ++ ) {
     if ( bs <= i ) { break; }
 
     float fdelta = float( i );
 
-    vec4 tex = texture2D( sampler0, ( blockOrigin + bv * fdelta ) / resolution );
-    vec3 val = tex.xyz;
+    vec4 val = texture2D( sampler0, ( blockOrigin + bv * fdelta ) / resolution );
 
     float wave = cos( delta * fdelta / float( bs ) * PI );
     sum += wave * val;
@@ -55,9 +55,9 @@ void main() {
     if ( showYCbCr ) {
       sum.yz += 0.5;
     } else {
-      sum = yuv2rgb( sum );
+      sum.xyz = yuv2rgb( sum.xyz );
     }
   }
 
-  gl_FragColor = vec4( sum, 1.0 );
+  gl_FragColor = sum;
 }

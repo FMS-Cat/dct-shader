@@ -81,7 +81,6 @@ let resize = ( w, h ) => {
   canvas.width = width;
   canvas.height = height;
 
-  path.resize( "input", width, height );
   path.resize( "jpegCosine", width, height );
   path.resize( "jpegRender", width, height );
 };
@@ -95,27 +94,12 @@ path.setGlobalFunc( () => {
 } );
 
 path.add( {
-  input: {
-    width: width,
-    height: height,
-    vert: glslify( './shader/quad.vert' ),
-    frag: glslify( './shader/return.frag' ),
-    blend: [ gl.ONE, gl.ONE ],
-    clear: [ 0.0, 0.0, 0.0, 0.0 ],
-    func: () => {
-      glCat.attribute( 'p', vboQuad, 2 );
-      glCat.uniform1i( 'vflip', 1 );
-      glCat.uniformTexture( 'texture', textureInput, 0 );
-      gl.drawArrays( gl.TRIANGLE_STRIP, 0, 4 );
-    }
-  },
-  
   jpegCosine: {
     width: width,
     height: height,
     vert: glslify( './shader/quad.vert' ),
     frag: glslify( './shader/jpeg-cosine.frag' ),
-    blend: [ gl.ONE, gl.ONE ],
+    blend: [ gl.ONE, gl.ZERO ],
     clear: [ 0.0, 0.0, 0.0, 0.0 ],
     tempFb: glCat.createFloatFramebuffer( width, height ),
     onresize: ( path, w, h ) => { path.tempFb = glCat.createFloatFramebuffer( width, height ); },
@@ -126,12 +110,14 @@ path.add( {
       glCat.attribute( 'p', vboQuad, 2 );
       glCat.uniform1i( 'isVert', false );
       glCat.uniform1i( 'blockSize', tweak.range( "blockSize", { min: 1, value: 8, max: 256, step: 1 } ) );
-      glCat.uniformTexture( 'sampler0', path.fb( "input" ).texture, 0 );
+      glCat.uniformTexture( 'sampler0', textureInput, 0 );
       glCat.uniform1f( 'highFreqMultiplier', tweak.range( "highFreqMul", { value: 0.0, max: 4.0 } ) );
       glCat.uniform1f( 'quantizeY', tweak.range( "quantizeY", { max: 0.2 } ) );
       glCat.uniform1f( 'quantizeYf', tweak.range( "quantizeYf", { max: 0.2 } ) );
       glCat.uniform1f( 'quantizeC', tweak.range( "quantizeC", { max: 0.2 } ) );
       glCat.uniform1f( 'quantizeCf', tweak.range( "quantizeCf", { max: 0.2 } ) );
+      glCat.uniform1f( 'quantizeA', tweak.range( "quantizeA", { max: 0.2 } ) );
+      glCat.uniform1f( 'quantizeAf', tweak.range( "quantizeAf", { max: 0.2 } ) );
       gl.drawArrays( gl.TRIANGLE_STRIP, 0, 4 );
 
       gl.bindFramebuffer( gl.FRAMEBUFFER, p.framebuffer.framebuffer );
@@ -144,6 +130,8 @@ path.add( {
       glCat.uniform1f( 'quantizeYf', tweak.range( "quantizeYf" ) );
       glCat.uniform1f( 'quantizeC', tweak.range( "quantizeC" ) );
       glCat.uniform1f( 'quantizeCf', tweak.range( "quantizeCf" ) );
+      glCat.uniform1f( 'quantizeA', tweak.range( "quantizeA" ) );
+      glCat.uniform1f( 'quantizeAf', tweak.range( "quantizeAf" ) );
       glCat.uniformTexture( 'sampler0', p.tempFb.texture, 0 );
       gl.drawArrays( gl.TRIANGLE_STRIP, 0, 4 );
     }
@@ -154,7 +142,7 @@ path.add( {
     height: height,
     vert: glslify( './shader/quad.vert' ),
     frag: glslify( './shader/jpeg-render.frag' ),
-    blend: [ gl.ONE, gl.ONE ],
+    blend: [ gl.ONE, gl.ZERO ],
     clear: [ 0.0, 0.0, 0.0, 0.0 ],
     tempFb: glCat.createFloatFramebuffer( width, height ),
     onresize: ( path, w, h ) => { path.tempFb = glCat.createFloatFramebuffer( width, height ); },
@@ -171,7 +159,8 @@ path.add( {
       gl.drawArrays( gl.TRIANGLE_STRIP, 0, 4 );
       
       gl.bindFramebuffer( gl.FRAMEBUFFER, null );
-      
+      gl.blendFunc( gl.SRC_ALPHA, gl.ZERO );
+
       glCat.attribute( 'p', vboQuad, 2 );
       glCat.uniform1i( 'isVert', true );
       glCat.uniform1i( 'bypassRDCT', tweak.checkbox( "bypassRDCT" ) ? 1 : 0 );
@@ -201,7 +190,6 @@ let update = () => {
     }
   }
 
-  path.render( "input" );
   path.render( "jpegCosine" );
   path.render( "jpegRender", null );
 
