@@ -28,17 +28,17 @@ vec3 rgb2yuv( vec3 rgb ) {
 }
 
 void main() {
-  vec2 uv = gl_FragCoord.xy / resolution;
   vec2 bv = ( isVert ? vec2( 0.0, 1.0 ) : vec2( 1.0, 0.0 ) );
   vec2 block = bv * float( blockSize - 1 ) + vec2( 1.0 );
   vec2 blockOrigin = 0.5 + floor( gl_FragCoord.xy / block ) * block;
+  int bs = int( min( float( blockSize ), dot( bv, resolution - blockOrigin + 0.5 ) ) );
 
-  float freq = floor( mod( isVert ? gl_FragCoord.y : gl_FragCoord.x, float( blockSize ) ) ) / float( blockSize ) * PI;
-  float factor = ( freq == 0.0 ? 1.0 : 2.0 ) / float( blockSize );
+  float freq = floor( mod( dot( bv, gl_FragCoord.xy ), float( blockSize ) ) ) / float( bs ) * PI;
+  float factor = ( freq == 0.0 ? 1.0 : 2.0 ) / float( bs );
 
   vec3 sum = vec3( 0.0 );
   for ( int i = 0; i < 1024; i ++ ) {
-    if ( blockSize <= i ) { break; }
+    if ( bs <= i ) { break; }
 
     vec2 delta = float( i ) * bv;
     float wave = cos( ( float( i ) + 0.5 ) * freq );

@@ -13,6 +13,8 @@ uniform bool showYCbCr;
 
 // ------
 
+bool validuv( vec2 v ) { return 0.0 < v.x && v.x < 1.0 && 0.0 < v.y && v.y < 1.0; }
+
 vec3 yuv2rgb( vec3 yuv ) {
   return vec3(
     yuv.x + 1.402 * yuv.z,
@@ -22,8 +24,8 @@ vec3 yuv2rgb( vec3 yuv ) {
 }
 
 void main() {
-  vec2 uv = gl_FragCoord.xy / resolution;
   if ( bypassRDCT ) {
+    vec2 uv = gl_FragCoord.xy / resolution;
     gl_FragColor = texture2D( sampler0, uv );
     if ( isVert ) { gl_FragColor.xyz += 0.5; }
     return;
@@ -32,19 +34,20 @@ void main() {
   vec2 bv = ( isVert ? vec2( 0.0, 1.0 ) : vec2( 1.0, 0.0 ) );
   vec2 block = bv * float( blockSize - 1 ) + vec2( 1.0 );
   vec2 blockOrigin = 0.5 + floor( gl_FragCoord.xy / block ) * block;
+  int bs = int( min( float( blockSize ), dot( bv, resolution - blockOrigin + 0.5 ) ) );
 
-  float delta = mod( isVert ? gl_FragCoord.y : gl_FragCoord.x, float( blockSize ) );
+  float delta = mod( dot( bv, gl_FragCoord.xy ), float( blockSize ) );
   
   vec3 sum = vec3( 0.0 );
   for ( int i = 0; i < 1024; i ++ ) {
-    if ( blockSize <= i ) { break; }
+    if ( bs <= i ) { break; }
 
     float fdelta = float( i );
 
     vec4 tex = texture2D( sampler0, ( blockOrigin + bv * fdelta ) / resolution );
     vec3 val = tex.xyz;
 
-    float wave = cos( delta * fdelta / float( blockSize ) * PI );
+    float wave = cos( delta * fdelta / float( bs ) * PI );
     sum += wave * val;
   }
 
